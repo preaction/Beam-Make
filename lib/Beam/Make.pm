@@ -16,9 +16,13 @@ use Moo;
 use experimental qw( signatures postderef );
 use Time::Piece;
 use YAML ();
+use Beam::Wire;
+use Scalar::Util qw( blessed );
 with 'Beam::Runnable';
 
 has conf => ( is => 'ro', default => sub { YAML::LoadFile( 'Beamfile' ) } );
+# Beam::Wire container objects
+has _wire => ( is => 'ro', default => sub { {} } );
 
 sub run( $self, @argv ) {
     my ( @targets, %vars );
@@ -57,6 +61,11 @@ sub run( $self, @argv ) {
         return stat( $target )->mtime if !$conf->{ $target };
 
         require Beam::Make::File;
+
+        # Resolve any references in the recipe object via Beam::Wire
+        # containers. The config is updated in-place
+        $self->_resolve_ref( $conf->{ $target } );
+
         my $recipe = $recipes{ $target } = Beam::Make::File->new(
             $conf->{ $target }->%*,
             name => $target,
@@ -80,6 +89,36 @@ sub run( $self, @argv ) {
         return $recipe->last_modified;
     };
     $build->( $_ ) for @targets;
+}
+
+# Resolve any references via Beam::Wire container lookups
+sub _resolve_ref( $self, $conf ) {
+    return $conf if !ref $conf || blessed $conf;
+    if ( ref $conf eq 'HASH' ) {
+        if ( grep { $_ !~ /^\$/ } keys %$conf ) {
+            my %resolved;
+            for my $key ( keys %$conf ) {
+                $resolved{ $key } = $self->_resolve_ref( $conf->{ $key } );
+            }
+            return \%resolved;
+        }
+        else {
+            # All keys begin with '$', so this must be a reference
+            # XXX: We may need to add the 'file:path' syntax to
+            # Beam::Wire directly. We could even call it as a class
+            # method!
+            my ( $file, $path ) = split /:/, $conf->{ '$ref' }, 2;
+            my $wire = $self->_wire->{ $file } ||= Beam::Wire->new( file => $file );
+            return $wire->get( $path );
+        }
+    }
+    elsif ( ref $conf eq 'ARRAY' ) {
+        my @resolved;
+        for my $i ( 0..$#$conf ) {
+            $resolved[$i] = $self->_resolve_ref( $conf->[$i] );
+        }
+        return \@resolved;
+    }
 }
 
 1;
