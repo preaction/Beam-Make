@@ -5,12 +5,10 @@ use warnings;
 use Moo;
 use File::stat;
 use Time::Piece;
+use Digest::SHA;
 use experimental qw( signatures postderef );
 
-#extends 'Beam::Make::Recipe';
-
-has name => ( is => 'ro', required => 1 );
-has requires => ( is => 'ro', default => sub { [] } );
+extends 'Beam::Make::Recipe';
 has commands => ( is => 'ro', required => 1 );
 
 sub make( $self, %vars ) {
@@ -24,12 +22,12 @@ sub make( $self, %vars ) {
     return 0;
 }
 
-sub last_modified( $self ) {
-    return -e $self->name ? stat( $self->name )->mtime : 2**31;
+sub _cache_hash( $self ) {
+    return -e $self->name ? Digest::SHA->new( 1 )->addfile( $self->name )->b64digest : '';
 }
 
-sub is_fresh( $self, $from ) {
-    return -e $self->name && $self->last_modified >= $from;
+sub last_modified( $self ) {
+    return $self->_cache->last_modified( $self->name, $self->_cache_hash );
 }
 
 1;

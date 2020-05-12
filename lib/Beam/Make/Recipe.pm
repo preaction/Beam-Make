@@ -8,5 +8,6 @@ use experimental qw( signatures postderef );
 
 has name => ( is => 'ro', required => 1 );
 has requires => ( is => 'ro', default => sub { [] } );
+has _cache => ( is => 'ro', required => 1 );
 
 1;

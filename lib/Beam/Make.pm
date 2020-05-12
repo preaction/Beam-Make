@@ -18,6 +18,7 @@ use Time::Piece;
 use YAML ();
 use Beam::Wire;
 use Scalar::Util qw( blessed );
+use Beam::Make::Cache;
 with 'Beam::Runnable';
 
 has conf => ( is => 'ro', default => sub { YAML::LoadFile( 'Beamfile' ) } );
@@ -38,6 +39,7 @@ sub run( $self, @argv ) {
 
     local @ENV{ keys %vars } = values %vars;
     my $conf = $self->conf;
+    my $cache = Beam::Make::Cache->new;
 
     # Targets must be built in order
     # Prereqs satisfied by original target remain satisfied
@@ -60,22 +62,28 @@ sub run( $self, @argv ) {
         # when they were last modified
         return stat( $target )->mtime if !$conf->{ $target };
 
-        require Beam::Make::File;
-
         # Resolve any references in the recipe object via Beam::Wire
-        # containers. The config is updated in-place
-        $self->_resolve_ref( $conf->{ $target } );
+        # containers.
+        my $target_conf = $self->_resolve_ref( $conf->{ $target } );
+        my $class = delete( $target_conf->{ '$class' } ) || 'Beam::Make::File';
+        eval "require $class";
 
-        my $recipe = $recipes{ $target } = Beam::Make::File->new(
-            $conf->{ $target }->%*,
+        my $recipe = $recipes{ $target } = $class->new(
+            $target_conf->%*,
             name => $target,
+            _cache => $cache,
         );
-        my $needs_update = !$recipe->is_fresh( 0 );
+        my $last_modified = $recipe->last_modified;
+        # We must update no matter what if we can't determine our last
+        # modified time
+        my $needs_update = $last_modified <= 0;
         if ( my @requires = $recipe->requires->@* ) {
             push @target_stack, $target;
             for my $require ( @requires ) {
-                my $last_modified = __SUB__->( $require );
-                $needs_update ||= !$recipe->is_fresh( $last_modified );
+                my $require_modified = __SUB__->( $require );
+                # If our requirement updated since we last updated, we
+                # need to update ourselves
+                $needs_update ||= $last_modified < $require_modified;
             }
             pop @target_stack;
         }
