@@ -1,8 +1,50 @@
 package Beam::Make;
 our $VERSION = '0.001';
-# ABSTRACT: Write a sentence about what it does
+# ABSTRACT: Recipes to declare and resolve dependencies between things
 
 =head1 SYNOPSIS
+
+    ### container.yml
+    # This stores useful objects for our recipes
+    dbh:
+        $class: DBI
+        $method: connect
+        $args:
+            - dbi:SQLite:RECENT.db
+
+    # This file contains our recipes
+    # Download a list of recent changes to CPAN
+    RECENT-6h.json:
+        commands:
+            - curl -O https://www.cpan.org/RECENT-6h.json
+    # Parse that JSON file into a CSV using an external program
+    RECENT-6h.csv:
+        requires:
+            - RECENT-6h.json
+        commands:
+            - yfrom json RECENT-6h.json | yq '.recent.[]' | yto csv > RECENT-6h.csv
+    # Build a SQLite database to hold the recent data
+    RECENT.db:
+        $class: Beam::Make::DBI::Schema
+        dbh: { $ref: 'container.yml:dbh' }
+        schema:
+            - table: recent
+              columns:
+                - path: VARCHAR(255)
+                - epoch: DOUBLE
+                - type: VARCHAR(10)
+    # Load the recent data CSV into the SQLite database
+    cpan-recent:
+        $class: Beam::Make::DBI::CSV
+        requires:
+            - RECENT.db
+            - RECENT-6h.csv
+        dbh: { $ref: 'container.yml:dbh' }
+        table: recent
+        file: RECENT-6h.csv
+
+    ### Load the recent data into our database
+    $ beam-make cpan-recent
 
 =head1 DESCRIPTION
 
@@ -12,13 +54,16 @@ our $VERSION = '0.001';
 
 use v5.20;
 use warnings;
+use Log::Any qw( $LOG );
 use Moo;
 use experimental qw( signatures postderef );
 use Time::Piece;
 use YAML ();
 use Beam::Wire;
 use Scalar::Util qw( blessed );
+use List::Util qw( max );
 use Beam::Make::Cache;
+use File::stat;
 with 'Beam::Runnable';
 
 has conf => ( is => 'ro', default => sub { YAML::LoadFile( 'Beamfile' ) } );
@@ -49,11 +94,13 @@ sub run( $self, @argv ) {
     # Each dependent will be checked against their depencencies' last
     # modified date to see if they need to be updated
     my $build = sub( $target ) {
+        $LOG->debug( "Want to build: $target" );
         if ( grep { $_ eq $target } @target_stack ) {
             die "Recursion at @target_stack";
         }
         # If we already have the recipe, it must already have been run
         if ( $recipes{ $target } ) {
+            $LOG->debug( "Nothing to do: $target already built" );
             return $recipes{ $target }->last_modified;
         }
 
@@ -61,41 +108,44 @@ sub run( $self, @argv ) {
         # file. Source files cannot be built, but we do want to know
         # when they were last modified
         if ( !$conf->{ $target } ) {
+            $LOG->debug(
+                "$target has no recipe and "
+                . ( -e $target ? 'exists as a file' : 'does not exist as a file' )
+            );
             return stat( $target )->mtime if -e $target;
-            die sprintf q{No recipe for target "%s" and file does not exist}."\n", $target;
+            die $LOG->errorf( q{No recipe for target "%s" and file does not exist}."\n", $target );
         }
 
         # Resolve any references in the recipe object via Beam::Wire
         # containers.
         my $target_conf = $self->_resolve_ref( $conf->{ $target } );
         my $class = delete( $target_conf->{ '$class' } ) || 'Beam::Make::File';
+        $LOG->debug( "Building recipe object $target ($class)" );
         eval "require $class";
-
         my $recipe = $recipes{ $target } = $class->new(
             $target_conf->%*,
             name => $target,
             _cache => $cache,
         );
-        my $last_modified = $recipe->last_modified;
-        # We must update no matter what if we can't determine our last
-        # modified time
-        my $needs_update = $last_modified <= 0;
+
+        my $requires_modified = 0;
         if ( my @requires = $recipe->requires->@* ) {
+            $LOG->debug( "Checking requirements for $target: @requires" );
             push @target_stack, $target;
             for my $require ( @requires ) {
-                my $require_modified = __SUB__->( $require );
-                # If our requirement updated since we last updated, we
-                # need to update ourselves
-                $needs_update ||= $last_modified < $require_modified;
+                $requires_modified = max $requires_modified, __SUB__->( $require );
             }
             pop @target_stack;
         }
-        if ( $needs_update ) {
-            say "$target updated";
+
+        # Do we need to build this recipe?
+        if ( $requires_modified > ( $recipe->last_modified || -1 ) ) {
+            $LOG->debug( "Building $target" );
             $recipe->make( %vars );
+            $LOG->info( "$target updated" );
         }
         else {
-            say "$target up-to-date";
+            $LOG->info( "$target up-to-date" );
         }
         return $recipe->last_modified;
     };

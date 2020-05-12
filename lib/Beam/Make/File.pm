@@ -28,7 +28,7 @@ sub _cache_hash( $self ) {
 }
 
 sub last_modified( $self ) {
-    return $self->_cache->last_modified( $self->name, $self->_cache_hash );
+    return -e $self->name ? $self->_cache->last_modified( $self->name, $self->_cache_hash ) : 0;
 }
 
 1;
