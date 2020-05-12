@@ -17,18 +17,19 @@ sub make( $self, %vars ) {
 
     # Now, prepare the changes to be made
     my @changes;
-    for my $pair ( pairs $self->schema->@* ) {
-        my $table = $pair->key;
-        my @columns = $pair->value->@*;
+    for my $table_schema ( $self->schema->@* ) {
+        my $table = $table_schema->{table};
+        my @columns = $table_schema->{columns}->@*;
         my $table_info = $dbh->table_info( '', '%', qq{$table} )->fetchrow_arrayref;
         if ( !$table_info ) {
             push @changes, sprintf 'CREATE TABLE %s ( %s )', $dbh->quote_identifier( $table ),
-                join ', ', map { join ' ', $dbh->quote_identifier( $_->key ), $_->value } pairs @columns;
+                join ', ', map { join ' ', $dbh->quote_identifier( $_->key ), $_->value }
+                    map { pairs %$_ } @columns;
         }
         else {
             my $column_info = $dbh->column_info( '', '%', $table, '%' )->fetchall_hashref( 'COLUMN_NAME' );
             # Compare columns and add if needed
-            for my $pair ( pairs @columns ) {
+            for my $pair ( map { pairs %$_ } @columns ) {
                 my $column_name = $pair->key;
                 my $column_type = $pair->value;
                 if ( !$column_info->{ $column_name } ) {

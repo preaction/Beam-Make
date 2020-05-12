@@ -29,15 +29,21 @@ my $make = Beam::Make->new(
                 '$ref' => 'dbi.yml:sqlite',
             },
             schema => [
-                fizz => [
-                    fizz_id => 'INTEGER PRIMARY KEY AUTOINCREMENT',
-                    foo => 'VARCHAR(255)',
-                ],
-                buzz => [
-                    buzz_id => 'INTEGER PRIMARY KEY AUTOINCREMENT',
-                    name => 'VARCHAR(255) NOT NULL',
-                    email => 'VARCHAR(255) NOT NULL',
-                ],
+                {
+                    table => 'fizz',
+                    columns => [
+                        { fizz_id => 'INTEGER PRIMARY KEY AUTOINCREMENT' },
+                        { foo => 'VARCHAR(255)' },
+                    ],
+                },
+                {
+                    table => 'buzz',
+                    columns => [
+                        { buzz_id => 'INTEGER PRIMARY KEY AUTOINCREMENT' },
+                        { name => 'VARCHAR(255) NOT NULL' },
+                        { email => 'VARCHAR(255) NOT NULL' },
+                    ],
+                },
             ],
         },
 
