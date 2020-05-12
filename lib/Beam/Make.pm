@@ -112,12 +112,19 @@ sub _resolve_ref( $self, $conf ) {
         }
         else {
             # All keys begin with '$', so this must be a reference
-            # XXX: We may need to add the 'file:path' syntax to
+            # XXX: We should add the 'file:path' syntax to
             # Beam::Wire directly. We could even call it as a class
-            # method!
-            my ( $file, $path ) = split /:/, $conf->{ '$ref' }, 2;
-            my $wire = $self->_wire->{ $file } ||= Beam::Wire->new( file => $file );
-            return $wire->get( $path );
+            # method! We should also move BEAM_PATH resolution to
+            # Beam::Wire directly...
+            my ( $file, $service ) = split /:/, $conf->{ '$ref' }, 2;
+            my $wire = $self->_wire->{ $file };
+            if ( !$wire ) {
+                for my $path ( split /:/, $ENV{BEAM_PATH} ) {
+                    next unless -e join '/', $path, $file;
+                    $wire = $self->_wire->{ $file } = Beam::Wire->new( file => join '/', $path, $file );
+                }
+            }
+            return $wire->get( $service );
         }
     }
     elsif ( ref $conf eq 'ARRAY' ) {
