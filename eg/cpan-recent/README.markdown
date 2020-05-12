@@ -36,7 +36,7 @@ file into a CSV.
 
 This builds the SQLite database schema.
 
-### cpan_recent
+### cpan-recent
 
 This loads the `RECENT-6h.csv` file into the `recent` table of the
 `RECENT.db` database.
@@ -51,5 +51,5 @@ To install the prereqs for this example, use
 To execute this example:
 
     $ export BEAM_PATH=.
-    $ carton exec beam-make cpan_recent
+    $ carton exec beam make cpan-recent
 

@@ -44,7 +44,7 @@ our $VERSION = '0.001';
         file: RECENT-6h.csv
 
     ### Load the recent data into our database
-    $ beam-make cpan-recent
+    $ beam make cpan-recent
 
 =head1 DESCRIPTION
 
