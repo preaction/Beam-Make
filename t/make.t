@@ -47,5 +47,12 @@ ok -e 'now.txt', 'now.txt exists';
 ok -e 'yesterday.txt', 'yesterday.txt exists';
 ok -e 'then.txt', 'then.txt exists';
 
+subtest 'error: target missing' => sub {
+    eval { $make->run( 'DOES_NOT_EXIST' ) };
+    ok $@, 'trying to execute unknown target fails';
+    like $@, qr{No recipe for target "DOES_NOT_EXIST" and file does not exist\n},
+        'error message is descriptive';
+};
+
 chdir $cwd;
 done_testing;

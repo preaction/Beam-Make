@@ -60,7 +60,10 @@ sub run( $self, @argv ) {
         # If there is no recipe for the target, it must be a source
         # file. Source files cannot be built, but we do want to know
         # when they were last modified
-        return stat( $target )->mtime if !$conf->{ $target };
+        if ( !$conf->{ $target } ) {
+            return stat( $target )->mtime if -e $target;
+            die sprintf q{No recipe for target "%s" and file does not exist}."\n", $target;
+        }
 
         # Resolve any references in the recipe object via Beam::Wire
         # containers.
