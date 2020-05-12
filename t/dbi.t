@@ -6,6 +6,7 @@ use Cwd ();
 use FindBin ();
 use Test::More;
 use Beam::Make;
+use Log::Any::Adapter Stderr => log_level => $ENV{HARNESS_IS_VERBOSE} ? 'debug' : 'fatal';
 
 BEGIN {
     eval { require DBD::SQLite; DBD::SQLite->VERSION( 1.56 ); 1 }
@@ -17,7 +18,7 @@ my $home = File::Temp->newdir();
 chdir $home;
 
 # Place to look for container files
-$ENV{BEAM_PATH} = join '/', $FindBin::Bin, 'share';
+my $SHARE_DIR = $ENV{BEAM_PATH} = join '/', $FindBin::Bin, 'share';
 
 my $make = Beam::Make->new(
     conf => {
@@ -29,8 +30,13 @@ my $make = Beam::Make->new(
             },
             schema => [
                 fizz => [
-                    fizz_id => 'ROWID PRIMARY KEY',
+                    fizz_id => 'INTEGER PRIMARY KEY AUTOINCREMENT',
                     foo => 'VARCHAR(255)',
+                ],
+                buzz => [
+                    buzz_id => 'INTEGER PRIMARY KEY AUTOINCREMENT',
+                    name => 'VARCHAR(255) NOT NULL',
+                    email => 'VARCHAR(255) NOT NULL',
                 ],
             ],
         },
@@ -60,6 +66,15 @@ my $make = Beam::Make->new(
                 q{INSERT INTO "fizz" ( foo ) VALUES ( 'bar 2' )},
             ],
         },
+
+        # Load a CSV into a table
+        baz => {
+            '$class' => 'Beam::Make::DBI::CSV',
+            requires => [qw( db.sqlite3 )],
+            dbh => { '$ref' => 'dbi.yml:sqlite' },
+            table => 'buzz',
+            file => join( '/', $SHARE_DIR, 'dbi.csv' ),
+        },
     },
 );
 
@@ -85,6 +100,19 @@ subtest 'add rows to the table' => sub {
     is $rows->[1]{foo}, 'row 2', 'row 2 is correct';
     is $rows->[2]{foo}, 'bar 1', 'row 3 is correct';
     is $rows->[3]{foo}, 'bar 2', 'row 4 is correct';
+};
+
+subtest 'load a csv file' => sub {
+    $make->run( 'baz' );
+    ok -e 'db.sqlite3', 'db.sqlite3 still exists';
+    my $wire = Beam::Wire->new( file => join '/', $ENV{BEAM_PATH}, 'dbi.yml' );
+    my $dbh = $wire->get( 'sqlite' );
+    my $rows = $dbh->selectall_arrayref( 'SELECT * FROM "buzz"', { Slice => {} } );
+    is scalar @$rows, 2, 'correct number of rows exist';
+    is $rows->[0]{name}, 'preaction', 'row 1 name is correct';
+    is $rows->[0]{email}, 'preaction@example.com', 'row 1 email is correct';
+    is $rows->[1]{name}, 'exodist', 'row 2 name is correct';
+    is $rows->[1]{email}, 'exodist@example.com', 'row 2 email is correct';
 };
 
 chdir $cwd;
