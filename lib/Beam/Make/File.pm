@@ -19,6 +19,7 @@ sub make( $self, %vars ) {
             die sprintf 'Error running external command "%s": %s', "@cmd", $?;
         }
     }
+    $self->_cache->set( $self->name, $self->_cache_hash );
     return 0;
 }
 

@@ -23,7 +23,7 @@ has file => ( is => 'ro', default => sub { '.Beamfile.cache' } );
 has _last_read => ( is => 'rw', default => 0 );
 has _cache => ( is => 'rw', default => sub { {} } );
 
-sub set( $self, $name, $hash, $time ) {
+sub set( $self, $name, $hash, $time=Time::Piece->new ) {
     my $cache = $self->_fetch_cache;
     $cache->{ $name } = { hash => $hash, time => blessed $time eq 'Time::Piece' ? $time->epoch : $time };
     $self->_write_cache( $cache );
