@@ -1,3 +1,9 @@
 Changelog for Beam-Make
 
 {{ $NEXT }}
+
+    [Added]
+
+    - Added basic Make functionality to create files from shell scripts
+    - Added recipe classes for running database queries, loading
+      database schemas, and loading data from CSV files

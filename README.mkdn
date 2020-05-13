@@ -144,6 +144,20 @@ as the value for a recipe attribute.
     This would allow rebuilding a ZIP file when something changes, or
     rebuilding a Docker image when needed.
 
+- Beam::Wire should support the &lt;container>:&lt;service> syntax
+for references
+
+    The [Beam::Wire](https://metacpan.org/pod/Beam::Wire) class should handle the `BEAM_PATH` environment
+    variable directly and be able to resolve services from other files
+    without building another `Beam::Wire` object in the container.
+
+- Beam::Wire should support resolving objects in arbitrary data
+structures
+
+    [Beam::Wire](https://metacpan.org/pod/Beam::Wire) should have a class method that one can pass in a hash and
+    get back a hash with any `Beam::Wire` object references resolved,
+    including `$ref` or `$class` object.
+
 # SEE ALSO
 
 [Beam::Wire](https://metacpan.org/pod/Beam::Wire)
