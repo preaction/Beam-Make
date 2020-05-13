@@ -158,6 +158,20 @@ recursively, in that directory.
 This would allow rebuilding a ZIP file when something changes, or
 rebuilding a Docker image when needed.
 
+=item Beam::Wire should support the <container>:<service> syntax
+for references
+
+The L<Beam::Wire> class should handle the C<BEAM_PATH> environment
+variable directly and be able to resolve services from other files
+without building another C<Beam::Wire> object in the container.
+
+=item Beam::Wire should support resolving objects in arbitrary data
+structures
+
+L<Beam::Wire> should have a class method that one can pass in a hash and
+get back a hash with any C<Beam::Wire> object references resolved,
+including C<$ref> or C<$class> object.
+
 =back
 
 =head1 SEE ALSO
