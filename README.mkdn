@@ -1,0 +1,160 @@
+[![Build Status](https://travis-ci.org/preaction/Beam-Make.svg?branch=master)](https://travis-ci.org/preaction/Beam-Make)
+[![Coverage Status](https://coveralls.io/repos/preaction/Beam-Make/badge.svg?branch=master)](https://coveralls.io/r/preaction/Beam-Make?branch=master)
+
+# NAME
+
+Beam::Make - Recipes to declare and resolve dependencies between things
+
+# VERSION
+
+version 0.001
+
+# SYNOPSIS
+
+    ### container.yml
+    # This Beam::Wire container stores shared objects for our recipes
+    dbh:
+        $class: DBI
+        $method: connect
+        $args:
+            - dbi:SQLite:RECENT.db
+
+    ### Beamfile
+    # This file contains our recipes
+    # Download a list of recent changes to CPAN
+    RECENT-6h.json:
+        commands:
+            - curl -O https://www.cpan.org/RECENT-6h.json
+
+    # Parse that JSON file into a CSV using an external program
+    RECENT-6h.csv:
+        requires:
+            - RECENT-6h.json
+        commands:
+            - yfrom json RECENT-6h.json | yq '.recent.[]' | yto csv > RECENT-6h.csv
+
+    # Build a SQLite database to hold the recent data
+    RECENT.db:
+        $class: Beam::Make::DBI::Schema
+        dbh: { $ref: 'container.yml:dbh' }
+        schema:
+            - table: recent
+              columns:
+                - path: VARCHAR(255)
+                - epoch: DOUBLE
+                - type: VARCHAR(10)
+
+    # Load the recent data CSV into the SQLite database
+    cpan-recent:
+        $class: Beam::Make::DBI::CSV
+        requires:
+            - RECENT.db
+            - RECENT-6h.csv
+        dbh: { $ref: 'container.yml:dbh' }
+        table: recent
+        file: RECENT-6h.csv
+
+    ### Load the recent data into our database
+    $ beam make cpan-recent
+
+# DESCRIPTION
+
+`Beam::Make` allows an author to describe how to build some thing (a
+file, some data in a database, an image, a container, etc...) and the
+relationships between things. This is similar to the classic `make`
+program used to build some software packages.
+
+Each thing is a `recipe` and can depend on other recipes. A user runs
+the `beam make` command to build the recipes they want, and
+`Beam::Make` ensures that the recipe's dependencies are satisfied
+before building the recipe.
+
+This class is a [Beam::Runnable](https://metacpan.org/pod/Beam::Runnable) object and can be embedded in other
+[Beam::Wire](https://metacpan.org/pod/Beam::Wire) containers.
+
+## Recipe Classes
+
+Unlike `make`, `Beam::Make` recipes can do more than just execute
+a series of shell scripts. Each recipe is a Perl class that describes
+how to build the desired thing and how to determine if that thing needs
+to be rebuilt.
+
+These recipe classes come with `Beam::Make`:
+
+- [File](https://metacpan.org/pod/Beam::Make::File) - The default recipe class that creates
+a file using one or more shell commands (a la `make`)
+- [DBI](https://metacpan.org/pod/Beam::Make::DBI) - Write data to a database
+- [DBI::Schema](https://metacpan.org/pod/Beam::Make::DBI::Schema) - Create a database
+schema
+- [DBI::CSV](https://metacpan.org/pod/Beam::Make::DBI::CSV) - Load data from a CSV into
+a database table
+
+Future recipe class ideas are:
+
+- **Template rendering**: Files could be generated from a configuration
+file or database and a template.
+- **Docker image, container, compose**: A Docker container could depend on
+a Docker image. When the image is updated, the container would get
+rebuilt and restarted. The Docker image could depend on a directory and
+get rebuilt if the directory or its Dockerfile changes.
+- **System services (init daemon, systemd service, etc...)**: Services
+could depend on their configuration files (built with a template) and be
+restarted when their configuration file is updated.
+
+## Beamfile
+
+The `Beamfile` defines the recipes. To avoid the pitfalls of `Makefile`, this is
+a YAML file containing a mapping of recipe names to recipe configuration. Each
+recipe configuration is a mapping containing the attributes for the recipe class.
+The `$class` special configuration key declares the recipe class to use. If no
+`$class` is specified, the default [Beam::Wire::File](https://metacpan.org/pod/Beam::Wire::File) recipe class is used.
+All recipe classes inherit from [Beam::Class::Recipe](https://metacpan.org/pod/Beam::Class::Recipe) and have the [name](https://metacpan.org/pod/Beam::Class::Recipe#name)
+and [requires](https://metacpan.org/pod/Beam::Class::Recipe#requires) attributes.
+
+For examples, see the [Beam::Wire examples directory on
+Github](https://github.com/preaction/Beam-Make/tree/master/eg).
+
+## Object Containers
+
+For additional configuration, create a [Beam::Wire](https://metacpan.org/pod/Beam::Wire) container and
+reference the objects inside using `$ref: "<container>:<service>"`
+as the value for a recipe attribute.
+
+# TODO
+
+- Target names in `Beamfile` should be regular expressions
+
+    This would work like Make's wildcard recipes, but with Perl regexp. The
+    recipe object's name is the real name, but the recipe chosen is the one
+    the matches the regexp.
+
+- Environment variables should interpolate into all attributes
+
+    Right now, the `NAME=VALUE` arguments to `beam make` only work in
+    recipes that use shell scripts (like [Beam::Make::File](https://metacpan.org/pod/Beam::Make::File)). It would be
+    nice if they were also interpolated into other recipe attributes.
+
+- Recipes should be able to require wildcards and directories
+
+    Recipe requirements should be able to depend on patterns, like all
+    `*.conf` files in a directory. It should also be able to depend on
+    a directory, which would be the same as depending on every file,
+    recursively, in that directory.
+
+    This would allow rebuilding a ZIP file when something changes, or
+    rebuilding a Docker image when needed.
+
+# SEE ALSO
+
+[Beam::Wire](https://metacpan.org/pod/Beam::Wire)
+
+# AUTHOR
+
+Doug Bell <preaction@cpan.org>
+
+# COPYRIGHT AND LICENSE
+
+This software is copyright (c) 2020 by Doug Bell.
+
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
