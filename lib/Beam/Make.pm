@@ -5,24 +5,27 @@ our $VERSION = '0.001';
 =head1 SYNOPSIS
 
     ### container.yml
-    # This stores useful objects for our recipes
+    # This Beam::Wire container stores shared objects for our recipes
     dbh:
         $class: DBI
         $method: connect
         $args:
             - dbi:SQLite:RECENT.db
 
+    ### Beamfile
     # This file contains our recipes
     # Download a list of recent changes to CPAN
     RECENT-6h.json:
         commands:
             - curl -O https://www.cpan.org/RECENT-6h.json
+
     # Parse that JSON file into a CSV using an external program
     RECENT-6h.csv:
         requires:
             - RECENT-6h.json
         commands:
             - yfrom json RECENT-6h.json | yq '.recent.[]' | yto csv > RECENT-6h.csv
+
     # Build a SQLite database to hold the recent data
     RECENT.db:
         $class: Beam::Make::DBI::Schema
@@ -33,6 +36,7 @@ our $VERSION = '0.001';
                 - path: VARCHAR(255)
                 - epoch: DOUBLE
                 - type: VARCHAR(10)
+
     # Load the recent data CSV into the SQLite database
     cpan-recent:
         $class: Beam::Make::DBI::CSV
@@ -48,7 +52,117 @@ our $VERSION = '0.001';
 
 =head1 DESCRIPTION
 
+C<Beam::Make> allows an author to describe how to build some thing (a
+file, some data in a database, an image, a container, etc...) and the
+relationships between things. This is similar to the classic C<make>
+program used to build some software packages.
+
+Each thing is a C<recipe> and can depend on other recipes. A user runs
+the C<beam make> command to build the recipes they want, and
+C<Beam::Make> ensures that the recipe's dependencies are satisfied
+before building the recipe.
+
+This class is a L<Beam::Runnable> object and can be embedded in other
+L<Beam::Wire> containers.
+
+=head2 Recipe Classes
+
+Unlike C<make>, C<Beam::Make> recipes can do more than just execute
+a series of shell scripts. Each recipe is a Perl class that describes
+how to build the desired thing and how to determine if that thing needs
+to be rebuilt.
+
+These recipe classes come with C<Beam::Make>:
+
+=over
+
+=item * L<File|Beam::Make::File> - The default recipe class that creates
+a file using one or more shell commands (a la C<make>)
+
+=item * L<DBI|Beam::Make::DBI> - Write data to a database
+
+=item * L<DBI::Schema|Beam::Make::DBI::Schema> - Create a database
+schema
+
+=item * L<DBI::CSV|Beam::Make::DBI::CSV> - Load data from a CSV into
+a database table
+
+=back
+
+Future recipe class ideas are:
+
+=over
+
+=item *
+
+B<Template rendering>: Files could be generated from a configuration
+file or database and a template.
+
+=item *
+
+B<Docker image, container, compose>: A Docker container could depend on
+a Docker image. When the image is updated, the container would get
+rebuilt and restarted. The Docker image could depend on a directory and
+get rebuilt if the directory or its Dockerfile changes.
+
+=item *
+
+B<System services (init daemon, systemd service, etc...)>: Services
+could depend on their configuration files (built with a template) and be
+restarted when their configuration file is updated.
+
+=back
+
+=head2 Beamfile
+
+The C<Beamfile> defines the recipes. To avoid the pitfalls of C<Makefile>, this is
+a YAML file containing a mapping of recipe names to recipe configuration. Each
+recipe configuration is a mapping containing the attributes for the recipe class.
+The C<$class> special configuration key declares the recipe class to use. If no
+C<$class> is specified, the default L<Beam::Wire::File> recipe class is used.
+All recipe classes inherit from L<Beam::Class::Recipe> and have the L<name|Beam::Class::Recipe/name>
+and L<requires|Beam::Class::Recipe/requires> attributes.
+
+For examples, see the L<Beam::Wire examples directory on
+Github|https://github.com/preaction/Beam-Make/tree/master/eg>.
+
+=head2 Object Containers
+
+For additional configuration, create a L<Beam::Wire> container and
+reference the objects inside using C<< $ref: "<container>:<service>" >>
+as the value for a recipe attribute.
+
+=head1 TODO
+
+=over
+
+=item Target names in C<Beamfile> should be regular expressions
+
+This would work like Make's wildcard recipes, but with Perl regexp. The
+recipe object's name is the real name, but the recipe chosen is the one
+the matches the regexp.
+
+=item Environment variables should interpolate into all attributes
+
+Right now, the C<< NAME=VALUE >> arguments to C<beam make> only work in
+recipes that use shell scripts (like L<Beam::Make::File>). It would be
+nice if they were also interpolated into other recipe attributes.
+
+=item Recipes should be able to require wildcards and directories
+
+Recipe requirements should be able to depend on patterns, like all
+C<*.conf> files in a directory. It should also be able to depend on
+a directory, which would be the same as depending on every file,
+recursively, in that directory.
+
+This would allow rebuilding a ZIP file when something changes, or
+rebuilding a Docker image when needed.
+
+=back
+
 =head1 SEE ALSO
+
+L<Beam::Wire>
 
 =cut
 
@@ -125,7 +239,7 @@ sub run( $self, @argv ) {
         my $recipe = $recipes{ $target } = $class->new(
             $target_conf->%*,
             name => $target,
-            _cache => $cache,
+            cache => $cache,
         );
 
         my $requires_modified = 0;
@@ -169,6 +283,10 @@ sub _resolve_ref( $self, $conf ) {
             # Beam::Wire directly. We could even call it as a class
             # method! We should also move BEAM_PATH resolution to
             # Beam::Wire directly...
+            # A single Beam::Wire->resolve( $conf ) should recursively
+            # resolve the refs in a hash (like this entire subroutine
+            # does), but also allow defining inline objects (with
+            # $class)
             my ( $file, $service ) = split /:/, $conf->{ '$ref' }, 2;
             my $wire = $self->_wire->{ $file };
             if ( !$wire ) {

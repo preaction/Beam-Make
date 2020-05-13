@@ -1,4 +1,36 @@
 package Beam::Make::DBI::Schema;
+our $VERSION = '0.001';
+# ABSTRACT: A Beam::Make recipe to build database schemas
+
+=head1 SYNOPSIS
+
+    ### container.yml
+    # A Beam::Wire container to configure a database connection to use
+    sqlite:
+        $class: DBI
+        $method: connect
+        $args:
+            - dbi:SQLite:conversion.db
+
+    ### Beamfile
+    conversion.db:
+        $class: Beam::Wire::DBI::Schema
+        dbh: { $ref: 'container.yml:sqlite' }
+        schema:
+            - table: accounts
+              columns:
+                - account_id: VARCHAR(255) NOT NULL PRIMARY KEY
+                - address: TEXT NOT NULL
+
+=head1 DESCRIPTION
+
+This L<Beam::Make> recipe class builds a database schema.
+
+=head1 SEE ALSO
+
+L<Beam::Make>, L<Beam::Wire>, L<DBI>
+
+=cut
 
 use v5.20;
 use warnings;
@@ -9,7 +41,35 @@ use Digest::SHA qw( sha1_base64 );
 use experimental qw( signatures postderef );
 
 extends 'Beam::Make::Recipe';
+
+=attr dbh
+
+Required. The L<DBI> database handle to use. Can be a reference to a service
+in a L<Beam::Wire> container using C<< { $ref: "<container>:<service>" } >>.
+
+=cut
+
 has dbh => ( is => 'ro', required => 1 );
+
+=attr schema
+
+A list of tables to create. Each table is a mapping with the following keys:
+
+=over
+
+=item table
+
+The name of the table to create.
+
+=item columns
+
+A list of key/value pairs of columns. The key is the column name, the value
+is the SQL to use for the column definition.
+
+=back
+
+=cut
+
 has schema => ( is => 'ro', required => 1 );
 
 sub make( $self, %vars ) {
@@ -45,7 +105,7 @@ sub make( $self, %vars ) {
         $dbh->do( $change );
     }
 
-    $self->_cache->set( $self->name, $self->_cache_hash );
+    $self->cache->set( $self->name, $self->_cache_hash );
     return 0;
 }
 
@@ -65,7 +125,7 @@ sub _cache_hash( $self ) {
 }
 
 sub last_modified( $self ) {
-    return $self->_cache->last_modified( $self->name, $self->_cache_hash );
+    return $self->cache->last_modified( $self->name, $self->_cache_hash );
 }
 
 1;
