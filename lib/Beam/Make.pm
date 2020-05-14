@@ -87,6 +87,10 @@ schema
 =item * L<DBI::CSV|Beam::Make::DBI::CSV> - Load data from a CSV into
 a database table
 
+=item * L<Docker::Image|Beam::Make::Docker::Image> - Build or pull a Docker image
+
+=item * L<Docker::Container|Beam::Make::Docker::Container> - Build a Docker container
+
 =back
 
 Future recipe class ideas are:
@@ -100,10 +104,7 @@ file or database and a template.
 
 =item *
 
-B<Docker image, container, compose>: A Docker container could depend on
-a Docker image. When the image is updated, the container would get
-rebuilt and restarted. The Docker image could depend on a directory and
-get rebuilt if the directory or its Dockerfile changes.
+B<Docker compose>: An entire docker-compose network could be rebuilt.
 
 =item *
 
@@ -250,6 +251,9 @@ sub run( $self, @argv ) {
         my $class = delete( $target_conf->{ '$class' } ) || 'Beam::Make::File';
         $LOG->debug( "Building recipe object $target ($class)" );
         eval "require $class";
+        if ( $@ ) {
+            die "Could not load $class: $@";
+        }
         my $recipe = $recipes{ $target } = $class->new(
             $target_conf->%*,
             name => $target,
@@ -270,10 +274,10 @@ sub run( $self, @argv ) {
         if ( $requires_modified > ( $recipe->last_modified || -1 ) ) {
             $LOG->debug( "Building $target" );
             $recipe->make( %vars );
-            $LOG->info( "$target updated" );
+            $LOG->info( "$target updated (" . $recipe->last_modified . ")" );
         }
         else {
-            $LOG->info( "$target up-to-date" );
+            $LOG->info( "$target up-to-date (" . $recipe->last_modified . ")" );
         }
         return $recipe->last_modified;
     };

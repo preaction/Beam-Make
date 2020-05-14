@@ -2,6 +2,10 @@ Changelog for Beam-Make
 
 {{ $NEXT }}
 
+    [Added]
+
+    - Added basic Docker image and container recipe classes
+
 0.001     2020-05-12 22:43:13-05:00 America/Chicago
 
     [Added]
