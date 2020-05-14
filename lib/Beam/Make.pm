@@ -271,13 +271,19 @@ sub run( $self, @argv ) {
         }
 
         # Do we need to build this recipe?
+        my $result;
         if ( $requires_modified > ( $recipe->last_modified || -1 ) ) {
             $LOG->debug( "Building $target" );
             $recipe->make( %vars );
-            $LOG->info( "$target updated (" . $recipe->last_modified . ")" );
+            $result = $LOG->info( "$target updated (modified: " . $recipe->last_modified . ")" );
         }
         else {
-            $LOG->info( "$target up-to-date (" . $recipe->last_modified . ")" );
+            $result = $LOG->info( "$target up-to-date (modified: " . $recipe->last_modified . ")" );
+        }
+        if ( !@target_stack ) {
+            # We were directly asked to build this, so let the user
+            # know about it
+            say $result;
         }
         return $recipe->last_modified;
     };
