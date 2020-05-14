@@ -7,6 +7,7 @@ use FindBin ();
 use Test::More;
 use File::Which qw( which );
 use Beam::Make;
+use JSON::PP qw( decode_json );
 use Log::Any::Adapter Stderr => log_level => $ENV{HARNESS_IS_VERBOSE} ? 'debug' : 'fatal';
 
 BEGIN {
@@ -57,6 +58,7 @@ my $make = Beam::Make->new(
 my $has_alpine = grep /^alpine\s+3\.7/, map { s/\n+//gr } `docker images`;
 END {
     # Clean up everything we're about to create
+    system 'docker', 'kill', 'beam-make-test-container';
     system 'docker', 'rm', 'beam-make-test-container';
     system 'docker', 'rmi', 'preaction/beam-make:test';
     if ( !$has_alpine ) {
@@ -74,6 +76,29 @@ subtest 'make everything' => sub {
     my @containers = map { s/\n+//gr } `docker ps -a`;
     ok +( grep /preaction\/beam-make\s+test/, @images ),
         'created container listed';
+};
+
+subtest 'edit configuration and remake' => sub {
+    my $inspect_cmd = 'docker container inspect beam-make-test-container';
+    my $old_container = decode_json( scalar `$inspect_cmd` );
+    my $make = Beam::Make->new(
+        conf => {
+            'beam-make-test-container' => {
+                '$class' => 'Beam::Make::Docker::Container',
+                image => 'preaction/beam-make:test',
+                volumes => [
+                    '$HOME/app',
+                ],
+                ports => [
+                    "5000:3000",
+                ],
+                restart => 'unless-stopped',
+            },
+        },
+    );
+    $make->run( 'beam-make-test-container', "HOME=$home" );
+    my $new_container = decode_json( scalar `$inspect_cmd` );
+    isnt $new_container->[0]{Id}, $old_container->[0]{Id}, 'new container was created';
 };
 
 chdir $cwd;

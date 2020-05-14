@@ -1,6 +1,6 @@
 #!/bin/sh
 
-for a in { 1 .. 10 }; do
+for a in $( seq 1 60 ); do
     echo "$a"
-    sleep 6
+    sleep 1
 done

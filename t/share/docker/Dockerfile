@@ -1,3 +1,4 @@
 FROM alpine:3.7
-COPY ticker.sh ./
-CMD [ './ticker.sh' ]
+RUN mkdir /opt
+COPY ticker.sh /opt
+CMD /opt/ticker.sh

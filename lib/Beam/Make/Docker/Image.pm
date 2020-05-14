@@ -125,6 +125,13 @@ sub make( $self, %vars ) {
     $LOG->debug( 'Running docker command: ', @cmd );
     system @cmd;
     delete $self->{_inspect_output} if exists $self->{_inspect_output};
+
+    # Update the cache
+    my $info = $self->_image_info;
+    my $created = $info->{Created} =~ s/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}).*$/$1/r;
+    my $iso8601 = '%Y-%m-%dT%H:%M:%S';
+    $self->cache->set( $self->name, $self->_cache_hash, Time::Piece->strptime( $created, $iso8601 ) );
+
     return 0;
 }
 
@@ -141,19 +148,21 @@ sub _image_info( $self ) {
     return $image || {};
 }
 
-sub _cache_hash( $self ) {
+sub _config_hash( $self ) {
+    my @keys = grep !/^_|^name$|^cache$/, keys %$self;
     my $json = JSON::PP->new->canonical->utf8;
+    my $hash = sha1_base64( $json->encode( { $self->%{ @keys } } ) );
+    return $hash;
+}
+
+sub _cache_hash( $self ) {
     my $image = $self->_image_info;
-    return unless keys %$image;
-    return $image->{Id};
+    return '' unless keys %$image;
+    return sha1_base64( $image->{Id} . $self->_config_hash );
 }
 
 sub last_modified( $self ) {
-    my $image = $self->_image_info;
-    return 0 unless keys %$image;
-    my $created = $image->{Created} =~ s/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}).*$/$1/r;
-    my $iso8601 = '%Y-%m-%dT%H:%M:%S';
-    return Time::Piece->strptime( $created, $iso8601 );
+    return $self->cache->last_modified( $self->name, $self->_cache_hash );
 }
 
 1;

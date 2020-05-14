@@ -119,6 +119,10 @@ has docker => (
 );
 
 sub make( $self, %vars ) {
+    # Always clean if we're making: Docker can only have one container
+    # with a given name.
+    $self->clean;
+
     my @cmd = (
         $self->docker, qw( container create ),
         '--name' => $self->name,
@@ -127,13 +131,35 @@ sub make( $self, %vars ) {
         ( $self->ports ? map {; "-p", $_ } $self->ports->@* : () ),
         ( $self->volumes ? map {; "-v", $_ } $self->volumes->@* : () ),
         $self->image,
-        $self->command,
+        ( $self->command )x!!$self->command,
     );
     @cmd = $self->fill_env( @cmd );
     $LOG->debug( 'Running docker command:', @cmd );
     system @cmd;
     delete $self->{_inspect_output} if exists $self->{_inspect_output};
+
+    # Update the cache
+    my $info = $self->_container_info;
+    my $created = $info->{Created} =~ s/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}).*$/$1/r;
+    my $iso8601 = '%Y-%m-%dT%H:%M:%S';
+    $self->cache->set( $self->name, $self->_cache_hash, Time::Piece->strptime( $created, $iso8601 ) );
+
+    $self->start;
     return 0;
+}
+
+sub clean( $self ) {
+    my $info = $self->_container_info;
+    if ( keys %$info ) {
+        if ( $info->{State}{Running} ) {
+            system qw( docker stop ), $self->name;
+        }
+        system qw( docker rm ), $self->name;
+    }
+}
+
+sub start( $self ) {
+    system qw( docker start ), $self->name;
 }
 
 sub _container_info( $self ) {
@@ -149,19 +175,21 @@ sub _container_info( $self ) {
     return $container || {};
 }
 
-sub _cache_hash( $self ) {
+sub _config_hash( $self ) {
+    my @keys = grep !/^_|^name$|^cache$/, keys %$self;
     my $json = JSON::PP->new->canonical->utf8;
+    my $hash = sha1_base64( $json->encode( { $self->%{ @keys } } ) );
+    return $hash;
+}
+
+sub _cache_hash( $self ) {
     my $container = $self->_container_info;
-    return unless keys %$container;
-    return $container->{Id};
+    return '' unless keys %$container;
+    return sha1_base64( $container->{Id} . $self->_config_hash );
 }
 
 sub last_modified( $self ) {
-    my $container = $self->_container_info;
-    return 0 unless keys %$container;
-    my $created = $container->{Created} =~ s/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}).*/$1/r;
-    my $iso8601 = '%Y-%m-%dT%H:%M:%S';
-    return Time::Piece->strptime( $created, $iso8601 );
+    return $self->cache->last_modified( $self->name, $self->_cache_hash );
 }
 
 1;
