@@ -61,7 +61,7 @@ sub run {
     Log::Any::Adapter->set( Stderr => ( log_level => $log_levels[ $opt{verbose} - $opt{quiet} ] ) );
 
     my $make = Beam::Make->new();
-    $make->run( @ARGV );
+    $make->run( @args );
 }
 
 1;

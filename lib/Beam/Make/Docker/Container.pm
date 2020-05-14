@@ -129,6 +129,7 @@ sub make( $self, %vars ) {
         $self->image,
         $self->command,
     );
+    @cmd = $self->fill_env( @cmd );
     $LOG->debug( 'Running docker command:', @cmd );
     system @cmd;
     delete $self->{_inspect_output} if exists $self->{_inspect_output};

@@ -76,4 +76,20 @@ modified dates for later use.
 
 has cache => ( is => 'ro', required => 1 );
 
+=method fill_env
+
+Fill in any environment variables in the given array of strings. Environment variables
+are interpreted as a POSIX shell: C<< $name >> or C<< ${name} >>.
+
+=cut
+
+sub fill_env( $self, @ary ) {
+    return map {
+        defined $_ ?
+            s{\$\{([^\}]+\})}{ $ENV{ $1 } // ( "\$$1" ) }egr
+            =~ s{\$([a-zA-Z_][a-zA-Z0-9_]+)}{ $ENV{ $1 } // ( "\$$1" ) }egr
+        : $_
+     } @ary;
+}
+
 1;

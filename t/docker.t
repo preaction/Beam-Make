@@ -33,7 +33,7 @@ my $make = Beam::Make->new(
         'image' => {
             '$class' => 'Beam::Make::Docker::Image',
             requires => [qw( base )],
-            build => "$SHARE_DIR/docker",
+            build => '$SHARE_DIR/docker',
             image => 'preaction/beam-make:test',
         },
 
@@ -43,7 +43,7 @@ my $make = Beam::Make->new(
             requires => [qw( image )],
             image => 'preaction/beam-make:test',
             volumes => [
-                "$home:/app",
+                '$HOME/app',
             ],
             ports => [
                 "5000:5000",
@@ -65,7 +65,7 @@ END {
 }
 
 subtest 'make everything' => sub {
-    $make->run( 'beam-make-test-container' );
+    $make->run( 'beam-make-test-container', "HOME=$home", "SHARE_DIR=$SHARE_DIR" );
     my @images = map { s/\n+//gr } `docker images`;
     ok +( grep /^alpine\s+3\.7\s+6d1ef012b567/, @images ),
         'alpine base image listed in local images';
