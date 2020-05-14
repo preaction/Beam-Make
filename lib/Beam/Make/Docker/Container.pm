@@ -55,7 +55,7 @@ has image => (
 
 =attr command
 
-The command to run, overriding the image's default command.
+The command to run, overriding the image's default command. Can be a list or a string.
 
 =cut
 
@@ -131,8 +131,10 @@ sub make( $self, %vars ) {
         ( $self->ports ? map {; "-p", $_ } $self->ports->@* : () ),
         ( $self->volumes ? map {; "-v", $_ } $self->volumes->@* : () ),
         $self->image,
-        ( $self->command )x!!$self->command,
     );
+    if ( my $cmd = $self->command ) {
+        push @cmd, ref $cmd eq 'ARRAY' ? @$cmd : $cmd;
+    }
     @cmd = $self->fill_env( @cmd );
     $LOG->debug( 'Running docker command:', @cmd );
     system @cmd;

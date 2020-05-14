@@ -90,9 +90,10 @@ subtest 'edit configuration and remake' => sub {
                     '$HOME/app',
                 ],
                 ports => [
-                    "5000:3000",
+                    "5000:5000",
                 ],
                 restart => 'unless-stopped',
+                command => [ '/opt/ticker.sh' ],
             },
         },
     );
