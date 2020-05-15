@@ -1,5 +1,5 @@
 package Beam::Runner::Command::make;
-our $VERSION = '0.002';
+our $VERSION = '0.003';
 # ABSTRACT: Build recipes and their dependencies
 
 =head1 SYNOPSIS

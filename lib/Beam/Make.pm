@@ -1,5 +1,5 @@
 package Beam::Make;
-our $VERSION = '0.002';
+our $VERSION = '0.003';
 # ABSTRACT: Recipes to declare and resolve dependencies between things
 
 =head1 SYNOPSIS

@@ -1,5 +1,5 @@
 package Beam::Make::Cache;
-our $VERSION = '0.002';
+our $VERSION = '0.003';
 # ABSTRACT: Store information about recipes performed
 
 =head1 SYNOPSIS

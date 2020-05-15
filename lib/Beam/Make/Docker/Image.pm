@@ -1,5 +1,5 @@
 package Beam::Make::Docker::Image;
-our $VERSION = '0.002';
+our $VERSION = '0.003';
 # ABSTRACT: A Beam::Make recipe to build/pull/update a Docker image
 
 =head1 SYNOPSIS

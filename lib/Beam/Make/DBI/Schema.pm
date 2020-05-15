@@ -1,5 +1,5 @@
 package Beam::Make::DBI::Schema;
-our $VERSION = '0.002';
+our $VERSION = '0.003';
 # ABSTRACT: A Beam::Make recipe to build database schemas
 
 =head1 SYNOPSIS
