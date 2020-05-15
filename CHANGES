@@ -6,6 +6,10 @@ Changelog for Beam-Make
 
     - Added basic Docker image and container recipe classes
 
+    [Fixed]
+
+    - Fixed output to show status of designated targets
+
 0.001     2020-05-12 22:43:13-05:00 America/Chicago
 
     [Added]
