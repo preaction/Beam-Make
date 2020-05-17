@@ -1,5 +1,5 @@
 package Beam::Make::File;
-our $VERSION = '0.003';
+our $VERSION = '0.004';
 # ABSTRACT: A Beam::Make recipe to build a file from shell scripts
 
 =head1 SYNOPSIS

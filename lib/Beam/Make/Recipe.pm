@@ -1,5 +1,5 @@
 package Beam::Make::Recipe;
-our $VERSION = '0.003';
+our $VERSION = '0.004';
 # ABSTRACT: The base class for Beam::Make recipes
 
 =head1 SYNOPSIS

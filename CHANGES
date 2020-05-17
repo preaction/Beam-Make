@@ -2,6 +2,8 @@ Changelog for Beam-Make
 
 {{ $NEXT }}
 
+0.003     2020-05-17 16:17:21-05:00 America/Chicago
+
     [Added]
 
     - Added recipe class for detecting changes in a Docker Hub registry,

@@ -1,5 +1,5 @@
 package Beam::Make::DBI;
-our $VERSION = '0.003';
+our $VERSION = '0.004';
 # ABSTRACT: A Beam::Make recipe for executing SQL queries
 
 =head1 SYNOPSIS

@@ -1,5 +1,5 @@
 package Beam::Make::Docker::Image::Hub;
-our $VERSION = '0.003';
+our $VERSION = '0.004';
 # ABSTRACT: A Beam::Make recipe to pull/update a Docker image from hub.docker.com
 
 =head1 SYNOPSIS
