@@ -7,6 +7,7 @@ our $VERSION = '0.003';
     ### Beamfile
     nordaaker/convos:
         $class: Beam::Make::Docker::Image
+        image: nordaaker/convos
 
 =head1 DESCRIPTION
 
