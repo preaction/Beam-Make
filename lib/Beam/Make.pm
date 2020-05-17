@@ -280,7 +280,7 @@ sub run( $self, @argv ) {
         else {
             $result = $LOG->info( "$target up-to-date (modified: " . $recipe->last_modified . ")" );
         }
-        if ( !@target_stack ) {
+        if ( !@target_stack && !$LOG->is_info ) {
             # We were directly asked to build this, so let the user
             # know about it
             say $result;
